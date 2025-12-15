@@ -11,6 +11,24 @@ service_id = ""
 
 [local_server]
 
+  [local_server.kv_stores]
+
+    [[local_server.kv_stores.videos]]
+      key = "sampleAd.m3u8"
+      file = "./videos/sampleAd.m3u8"
+    [[local_server.kv_stores.videos]]
+      key = "sampleAd.mp4"
+      file = "./videos/sampleAd.mp4"
+    [[local_server.kv_stores.videos]]
+      key = "sampleAd0.ts"
+      file = "./videos/sampleAd0.ts"
+    [[local_server.kv_stores.videos]]
+      key = "sampleAd1.ts"
+      file = "./videos/sampleAd1.ts"
+    [[local_server.kv_stores.videos]]
+      key = "sampleAd2.ts"
+      file = "./videos/sampleAd2.ts"
+
 [scripts]
   build = "npm run build"
   post_init = "npm install"

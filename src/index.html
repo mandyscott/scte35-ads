@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fastly Usage Analytics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --bg-gradient: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            color: var(--dark);
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            background: var(--bg-gradient);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        
+        .tabs {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            padding: 5px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            background: var(--bg-gradient);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 1.2rem;
+            color: var(--dark);
+            font-weight: 600;
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: var(--bg-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 10px 0;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .metric-change {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .change-up {
+            background: rgba(39, 174, 96, 0.1);
+            color: var(--success);
+        }
+        
+        .change-down {
+            background: rgba(231, 76, 60, 0.1);
+            color: var(--danger);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--bg-gradient);
+            border-radius: 15px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .progress-fill.warning { background: linear-gradient(90deg, var(--warning) 0%, #e67e22 100%); }
+        .progress-fill.danger { background: linear-gradient(90deg, var(--danger) 0%, #c0392b 100%); }
+        .progress-fill.success { background: linear-gradient(90deg, var(--success) 0%, #16a085 100%); }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .status-ok { background: var(--success); }
+        .status-warning { background: var(--warning); }
+        .status-danger { background: var(--danger); }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .alert-box {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--warning);
+        }
+        
+        .alert-box.danger {
+            border-left-color: var(--danger);
+        }
+        
+        .alert-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+        
+        .alert-message {
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .alert-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .table-responsive {
+            overflow-x: auto;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .data-table th {
+            background: #f8f8f8;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        
+        .data-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .sparkline {
+            display: inline-block;
+            width: 100px;
+            height: 20px;
+        }
+        
+        .trend-indicator {
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            margin-left: 8px;
+        }
+        
+        .trend-up {
+            border-bottom: 10px solid var(--success);
+        }
+        
+        .trend-down {
+            border-top: 10px solid var(--danger);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 50px;
+            color: white;
+        }
+        
+        .loading.show { display: block; }
+        
+        .loader {
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 5px solid white;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .notification-settings {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background: var(--primary);
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-actions {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>📊 Fastly Analytics Dashboard</h1>
+                <div class="subtitle">Service Order: Q-184401 | Real-time Usage & Predictive Analytics</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="exportReport()">📥 Export Report</button>
+                <button class="btn" onclick="refreshData()">🔄 Refresh</button>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('overview')">Overview</button>
+            <button class="tab" onclick="switchTab('performance')">Performance</button>
+            <button class="tab" onclick="switchTab('trends')">Trends & Predictions</button>
+            <button class="tab" onclick="switchTab('alerts')">Alerts & Notifications</button>
+            <button class="tab" onclick="switchTab('accounts')">Account Details</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loader"></div>
+            <p>Loading analytics data...</p>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview-tab" class="tab-content active">
+            <div class="grid">
+                <!-- Key Metrics -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🚀 Request Rate</span>
+                        <span class="status-badge status-ok" id="rps-status">Normal</span>
+                    </div>
+                    <div class="metric-value" id="current-rps">0</div>
+                    <div class="metric-label">
+                        Current RPS
+                        <span class="metric-change change-up" id="rps-change">+0%</span>
+                    </div>
+                    <canvas id="rps-sparkline" class="sparkline"></canvas>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🎯 Cache Hit Ratio</span>
+                        <span class="status-badge status-ok" id="cache-status">Good</span>
+                    </div>
+                    <div class="metric-value" id="cache-ratio">0%</div>
+                    <div class="metric-label">
+                        Current Hit Ratio
+                        <span class="trend-indicator trend-up"></span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill success" id="cache-progress" style="width: 0%">0%</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">💰 Estimated Cost</span>
+                        <span class="status-badge status-warning" id="cost-status">Watch</span>
+                    </div>
+                    <div class="metric-value">$<span id="current-cost">0</span></div>
+                    <div class="metric-label">
+                        Month-to-Date
+                        <span class="metric-change change-up" id="cost-change">+0%</span>
+                    </div>
+                    <div id="cost-breakdown" style="margin-top: 15px;">
+                        <small>DDoS: $<span id="ddos-cost">0</span> | TLS: $<span id="tls-cost">0</span></small>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🌐 Bandwidth</span>
+                        <span class="status-badge status-ok" id="bandwidth-status">Normal</span>
+                    </div>
+                    <div class="metric-value" id="bandwidth-usage">0 GB</div>
+                    <div class="metric-label">
+                        Total This Month
+                        <span class="trend-indicator trend-up"></span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="bandwidth-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bot Management & Security -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">🤖 Bot Management & Security</span>
+                </div>
+                <div class="grid" style="margin-top: 20px;">
+                    <div>
+                        <div class="metric-label">Bot Requests Blocked</div>
+                        <div class="metric-value" style="font-size: 1.8rem;" id="bot-blocked">0</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="bot-progress" style="width: 0%">0%</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="metric-label">WAF Events</div>
+                        <div class="metric-value" style="font-size: 1.8rem;" id="waf-events">0</div>
+                        <canvas id="waf-chart" style="margin-top: 20px;"></canvas>
+                    </div>
+                    <div>
+                        <div class="metric-label">Attack Patterns</div>
+                        <div id="attack-patterns" style="margin-top: 10px;">
+                            <small>Loading...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Tab -->
+        <div id="performance-tab" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⚡ Origin Performance</span>
+                    </div>
+                    <div class="metric-label">Average Latency</div>
+                    <div class="metric-value" style="font-size: 1.8rem;" id="origin-latency">0ms</div>
+                    <div class="chart-container">
+                        <canvas id="latency-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">❌ Error Rates</span>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Status Code</th>
+                                <th>Count</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="error-table">
+                            <tr><td colspan="3">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🖼️ Image Optimization</span>
+                    </div>
+                    <div class="metric-label">Images Processed</div>
+                    <div class="metric-value" style="font-size: 1.8rem;" id="images-processed">0</div>
+                    <div class="metric-label" style="margin-top: 15px;">Bandwidth Saved</div>
+                    <div class="metric-value" style="font-size: 1.5rem;" id="bandwidth-saved">0 GB</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⚙️ Compute Performance</span>
+                    </div>
+                    <div class="metric-label">Avg Execution Time</div>
+                    <div class="metric-value" style="font-size: 1.8rem;" id="compute-time">0ms</div>
+                    <div class="metric-label" style="margin-top: 15px;">Compute Requests</div>
+                    <div class="metric-value" style="font-size: 1.5rem;" id="compute-requests">0</div>
+                </div>
+            </div>
+
+            <!-- Performance Score Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📈 Performance Score</span>
+                </div>
+                <div style="text-align: center; padding: 30px;">
+                    <div class="metric-value" style="font-size: 4rem;" id="performance-score">0</div>
+                    <div class="metric-label">Overall Score (0-100)</div>
+                    <div id="performance-recommendations" style="margin-top: 30px; text-align: left;">
+                        <!-- Recommendations will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trends Tab -->
+        <div id="trends-tab" class="tab-content">
+            <div class="grid">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📊 30-Day Trends</span>
+                    </div>
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="trends-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🔮 Predictions</span>
+                    </div>
+                    <div id="predictions-content">
+                        <div style="margin-bottom: 20px;">
+                            <div class="metric-label">End of Month Projection</div>
+                            <div class="metric-value" style="font-size: 1.5rem;">
+                                Bot: <span id="bot-projection">0</span>%
+                            </div>
+                            <div class="metric-value" style="font-size: 1.5rem;">
+                                Cost: $<span id="cost-projection">0</span>
+                            </div>
+                        </div>
+                        <div id="prediction-alerts"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seasonal Patterns -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">🗓️ Seasonal Patterns</span>
+                </div>
+                <div class="grid">
+                    <div>
+                        <div class="metric-label">Peak Hours</div>
+                        <div id="peak-hours" style="margin-top: 10px;">Loading...</div>
+                    </div>
+                    <div>
+                        <div class="metric-label">Peak Days</div>
+                        <div id="peak-days" style="margin-top: 10px;">Loading...</div>
+                    </div>
+                    <div>
+                        <div class="metric-label">Anomalies Detected</div>
+                        <div id="anomalies" style="margin-top: 10px;">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📅 Period Comparison</span>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>This Week</th>
+                            <th>Last Week</th>
+                            <th>Change</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparison-table">
+                        <tr><td colspan="4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Alerts Tab -->
+        <div id="alerts-tab" class="tab-content">
+            <!-- Notification Settings -->
+            <div class="notification-settings">
+                <h3 style="margin-bottom: 20px;">🔔 Notification Settings</h3>
+                <div class="grid">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span>Slack Notifications</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="slack-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span>Email Notifications</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="email-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span>PagerDuty (Critical Only)</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pagerduty-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Alerts -->
+            <div id="active-alerts">
+                <!-- Alerts will be dynamically inserted here -->
+            </div>
+
+            <!-- Alert History -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📜 Alert History</span>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Level</th>
+                            <th>Type</th>
+                            <th>Message</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alert-history">
+                        <tr><td colspan="5">No alerts in the last 24 hours</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Accounts Tab -->
+        <div id="accounts-tab" class="tab-content">
+            <div id="accounts-grid" class="grid">
+                <!-- Account cards will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for charts
+        let charts = {};
+        let currentData = null;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            loadData();
+            setInterval(loadData, 60000); // Refresh every minute
+        });
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        // Initialize all charts
+        function initializeCharts() {
+            // Bandwidth Chart
+            const bandwidthCtx = document.getElementById('bandwidth-chart').getContext('2d');
+            charts.bandwidth = new Chart(bandwidthCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Bandwidth (GB)',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Latency Chart
+            const latencyCtx = document.getElementById('latency-chart').getContext('2d');
+            charts.latency = new Chart(latencyCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-10ms', '10-50ms', '50-100ms', '100-250ms', '250-500ms', '500ms+'],
+                    datasets: [{
+                        label: 'Request Count',
+                        data: [],
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Trends Chart
+            const trendsCtx = document.getElementById('trends-chart').getContext('2d');
+            charts.trends = new Chart(trendsCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Requests',
+                            data: [],
+                            borderColor: '#667eea',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Cache Hit Ratio',
+                            data: [],
+                            borderColor: '#27ae60',
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left'
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load data from API
+        async function loadData() {
+            document.getElementById('loading').classList.add('show');
+            
+            try {
+                // Fetch all data endpoints
+                const [usage, metrics, trends, alerts] = await Promise.all([
+                    fetch('/api/usage').then(r => r.json()),
+                    fetch('/api/metrics').then(r => r.json()),
+                    fetch('/api/trends').then(r => r.json()),
+                    fetch('/api/alerts').then(r => r.json())
+                ]);
+
+                currentData = { usage, metrics, trends, alerts };
+                
+                updateDashboard(currentData);
+                updateCharts(currentData);
+                updateAlerts(currentData.alerts);
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showError('Failed to load data. Please refresh the page.');
+            } finally {
+                document.getElementById('loading').classList.remove('show');
+            }
+        }
+
+        // Update dashboard with new data
+        function updateDashboard(data) {
+            // Update overview metrics
+            document.getElementById('current-rps').textContent = formatNumber(data.metrics.avgRps || 0);
+            document.getElementById('cache-ratio').textContent = (data.metrics.cacheHitRatio || 0).toFixed(1) + '%';
+            document.getElementById('current-cost').textContent = (data.usage.costs?.estimated_total || 0).toFixed(2);
+            document.getElementById('bandwidth-usage').textContent = formatBytes(data.metrics.totalBandwidth || 0);
+            
+            // Update cost breakdown
+            document.getElementById('ddos-cost').textContent = (data.usage.costs?.ddosProtection || 0).toFixed(2);
+            document.getElementById('tls-cost').textContent = (data.usage.costs?.tlsCertificates || 0).toFixed(2);
+            
+            // Update Bot Management
+            document.getElementById('bot-blocked').textContent = formatNumber(data.metrics.totalBotRequests || 0);
+            const botPercent = (data.metrics.totalBotRequests / (250000000/13)) * 100;
+            document.getElementById('bot-progress').style.width = Math.min(botPercent, 100) + '%';
+            document.getElementById('bot-progress').textContent = botPercent.toFixed(1) + '%';
+            
+            // Update Performance metrics
+            document.getElementById('origin-latency').textContent = (data.metrics.avgLatency || 0).toFixed(0) + 'ms';
+            document.getElementById('images-processed').textContent = formatNumber(data.metrics.totalImageOptRequests || 0);
+            document.getElementById('bandwidth-saved').textContent = formatBytes(data.metrics.imageOptBandwidthSaved || 0);
+            document.getElementById('performance-score').textContent = data.metrics.performanceScore || 0;
+            
+            // Update status badges
+            updateStatusBadges(data);
+            
+            // Update predictions
+            updatePredictions(data.trends);
+            
+            // Update accounts
+            updateAccounts(data.usage.accounts);
+        }
+
+        // Update charts with new data
+        function updateCharts(data) {
+            // Update bandwidth chart
+            if (charts.bandwidth && data.trends.historicalData) {
+                const labels = data.trends.historicalData.map(d => new Date(d.date).toLocaleDateString());
+                const values = data.trends.historicalData.map(d => d.metrics.bandwidth / (1024*1024*1024));
+                
+                charts.bandwidth.data.labels = labels.slice(-7);
+                charts.bandwidth.data.datasets[0].data = values.slice(-7);
+                charts.bandwidth.update();
+            }
+            
+            // Update trends chart
+            if (charts.trends && data.trends.historicalData) {
+                const labels = data.trends.historicalData.map(d => new Date(d.date).toLocaleDateString());
+                const requests = data.trends.historicalData.map(d => d.metrics.requests);
+                const cacheRatio = data.trends.historicalData.map(d => d.metrics.cacheHitRatio);
+                
+                charts.trends.data.labels = labels;
+                charts.trends.data.datasets[0].data = requests;
+                charts.trends.data.datasets[1].data = cacheRatio;
+                charts.trends.update();
+            }
+        }
+
+        // Update alerts section
+        function updateAlerts(alerts) {
+            const alertsContainer = document.getElementById('active-alerts');
+            alertsContainer.innerHTML = '';
+            
+            if (!alerts || alerts.length === 0) {
+                alertsContainer.innerHTML = '<div class="card"><p style="text-align: center; padding: 40px; color: #666;">No active alerts 🎉</p></div>';
+                return;
+            }
+            
+            alerts.forEach(alert => {
+                const alertClass = alert.level === 'critical' ? 'danger' : 'warning';
+                const alertHtml = `
+                    <div class="alert-box ${alertClass}">
+                        <div class="alert-title">${getAlertIcon(alert.level)} ${alert.title}</div>
+                        <div class="alert-message">${alert.message}</div>
+                        <div class="alert-actions">
+                            <button class="btn btn-secondary" onclick="dismissAlert('${alert.id}')">Dismiss</button>
+                            <button class="btn" onclick="viewAlertDetails('${alert.id}')">View Details</button>
+                        </div>
+                    </div>
+                `;
+                alertsContainer.innerHTML += alertHtml;
+            });
+        }
+
+        // Update predictions
+        function updatePredictions(trends) {
+            if (!trends || !trends.predictions) return;
+            
+            const botProjection = trends.predictions.endOfMonth?.botRequests?.predicted || 0;
+            const costProjection = trends.predictions.endOfMonth?.costs?.predicted || 0;
+            
+            document.getElementById('bot-projection').textContent = ((botProjection / (250000000/13)) * 100).toFixed(1);
+            document.getElementById('cost-projection').textContent = costProjection.toFixed(2);
+            
+            // Update prediction alerts
+            const alertsDiv = document.getElementById('prediction-alerts');
+            alertsDiv.innerHTML = '';
+            
+            if (trends.predictions.recommendations) {
+                trends.predictions.recommendations.forEach(rec => {
+                    alertsDiv.innerHTML += `
+                        <div style="padding: 10px; margin: 10px 0; background: #f8f8f8; border-radius: 8px;">
+                            <strong>${rec.title}</strong>
+                            <p style="margin: 5px 0; color: #666;">${rec.description}</p>
+                            <small>Action: ${rec.action}</small>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // Update accounts grid
+        function updateAccounts(accounts) {
+            const grid = document.getElementById('accounts-grid');
+            grid.innerHTML = '';
+            
+            accounts.forEach(account => {
+                const card = `
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">${account.name}</span>
+                        </div>
+                        <div class="metric-label">Total Requests</div>
+                        <div class="metric-value" style="font-size: 1.8rem;">${formatNumber(account.requests)}</div>
+                        <div class="metric-label" style="margin-top: 15px;">Bot Requests</div>
+                        <div class="metric-value" style="font-size: 1.5rem;">${formatNumber(account.botRequests || 0)}</div>
+                        <div class="metric-label" style="margin-top: 15px;">Services</div>
+                        <div style="font-size: 1.2rem; color: #666;">${account.services || 0} active</div>
+                    </div>
+                `;
+                grid.innerHTML += card;
+            });
+        }
+
+        // Update status badges
+        function updateStatusBadges(data) {
+            // RPS status
+            const rpsStatus = document.getElementById('rps-status');
+            if (data.metrics.peakRps > 10000) {
+                rpsStatus.className = 'status-badge status-danger';
+                rpsStatus.textContent = 'High';
+            } else if (data.metrics.peakRps > 5000) {
+                rpsStatus.className = 'status-badge status-warning';
+                rpsStatus.textContent = 'Elevated';
+            } else {
+                rpsStatus.className = 'status-badge status-ok';
+                rpsStatus.textContent = 'Normal';
+            }
+            
+            // Cache status
+            const cacheStatus = document.getElementById('cache-status');
+            if (data.metrics.cacheHitRatio < 70) {
+                cacheStatus.className = 'status-badge status-danger';
+                cacheStatus.textContent = 'Poor';
+            } else if (data.metrics.cacheHitRatio < 80) {
+                cacheStatus.className = 'status-badge status-warning';
+                cacheStatus.textContent = 'Fair';
+            } else {
+                cacheStatus.className = 'status-badge status-ok';
+                cacheStatus.textContent = 'Good';
+            }
+        }
+
+        // Refresh data
+        async function refreshData() {
+            await loadData();
+        }
+
+        // Export report
+        function exportReport() {
+            if (!currentData) {
+                alert('No data to export. Please wait for data to load.');
+                return;
+            }
+            
+            // Create CSV content
+            const csv = generateCSVReport(currentData);
+            
+            // Download file
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fastly-usage-report-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+
+        // Generate CSV report
+        function generateCSVReport(data) {
+            let csv = 'Fastly Usage Report\n';
+            csv += `Generated: ${new Date().toISOString()}\n\n`;
+            
+            csv += 'Metric,Value,Status\n';
+            csv += `Total Requests,${data.metrics.totalRequests || 0},\n`;
+            csv += `Bot Requests,${data.metrics.totalBotRequests || 0},\n`;
+            csv += `Cache Hit Ratio,${data.metrics.cacheHitRatio || 0}%,\n`;
+            csv += `Avg RPS,${data.metrics.avgRps || 0},\n`;
+            csv += `Peak RPS,${data.metrics.peakRps || 0},\n`;
+            csv += `Total Bandwidth,${formatBytes(data.metrics.totalBandwidth || 0)},\n`;
+            csv += `Estimated Cost,$${(data.usage.costs?.estimated_total || 0).toFixed(2)},\n`;
+            
+            return csv;
+        }
+
+        // Helper functions
+        function formatNumber(num) {
+            return new Intl.NumberFormat().format(Math.round(num));
+        }
+
+        function formatBytes(bytes) {
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes === 0) return '0 Bytes';
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function getAlertIcon(level) {
+            const icons = {
+                warning: '⚠️',
+                critical: '🚨',
+                escalation: '🔴'
+            };
+            return icons[level] || '📊';
+        }
+
+        function dismissAlert(alertId) {
+            // Implementation for dismissing alerts
+            console.log('Dismissing alert:', alertId);
+        }
+
+        function viewAlertDetails(alertId) {
+            // Implementation for viewing alert details
+            console.log('Viewing alert:', alertId);
+        }
+
+        function showError(message) {
+            // Show error message to user
+            alert(message);
+        }
+    </script>
+</body>
+</html>
